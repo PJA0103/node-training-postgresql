@@ -1,10 +1,8 @@
 require("dotenv").config()
 const http = require("http")
 const AppDataSource = require("./db")
+const error500 = require("./error500");
 
-function isUndefined (value){
-  return value === undefined
-}
 function isNotValidString (value){
   return typeof value !== "string" || value.trim().length === 0 || value === ""
 }
@@ -36,18 +34,14 @@ const requestListener = async (req, res) => {
       }))
       res.end()
     }catch (error){
-      res.writeHead(500, headers)
-      res.write(JSON.stringify({
-        status: "error",
-        message: "伺服器錯誤"
-      }))
-      res.end()
+      error500(res);
     }
   } else if (req.url === "/api/credit-package" && req.method === "POST") {
     req.on("end", async()=> {
       try {
-        const data = JSON.parse(body)
-        if (isUndefined(data.name) || isNotValidInteger(data.credit_amount) || isUndefined(data.price) || isNotValidInteger(data.price)){
+        const data = JSON.parse(body);
+        console.log(isNotValidString(data.name) );
+        if (isNotValidString(data.name) || isNotValidInteger(data.credit_amount) || isNotValidInteger(data.price)){
           res.writeHead(400, headers)
           res.write(JSON.stringify({
             status: "failed",
@@ -84,18 +78,13 @@ const requestListener = async (req, res) => {
         }))
         res.end()
       }catch (error){
-        res.writeHead(500, headers)
-        res.write(JSON.stringify({
-          status: "error",
-          message: "伺服器錯誤"
-        }))
-        res.end()
+        error500(res);
       }
     })
   } else if (req.url.startsWith("/api/credit-package/") && req.method === "DELETE") {
     try {
-      const packageId = req.url.split("/").pop()
-      if (isUndefined(packageId) || isNotValidString(packageId)){
+      const packageId = req.url.split("/").pop();
+      if (isNotValidString(packageId)){ 
         res.writeHead(400, headers)
         res.write(JSON.stringify({
           status: "failed",
@@ -105,7 +94,7 @@ const requestListener = async (req, res) => {
         return
       }
       const result = await AppDataSource.getRepository("CreditPackage").delete(packageId)
-      if (result.affected === 0){ //對應的刪除改變了多少東西
+      if (result.affected === 0){ //對應的刪除改變了多少東西，===0 aka沒刪除東西
         res.writeHead(400, headers)
         res.write(JSON.stringify({
           status: "failed",
@@ -120,17 +109,10 @@ const requestListener = async (req, res) => {
       }))
       res.end()
     }catch (error){
-      res.writeHead(500, headers)
-      res.write(JSON.stringify({
-        status: "error",
-        message: "伺服器錯誤"
-      }))
-      res.end()
+      error500(res);
     }
-  } else if (req.method === "OPTIONS") {
-    res.writeHead(200, headers)
-    res.end()
-  } else if (req.url === "/api/skill" && req.method === "GET") {
+
+  } else if (req.url === "/api/coaches/skill" && req.method === "GET") {
     try {
       const skills = await AppDataSource.getRepository("Skill").find({
         select: ["id", "name"]
@@ -142,18 +124,13 @@ const requestListener = async (req, res) => {
       }))
       res.end()
     }catch (error){
-      res.writeHead(500, headers)
-      res.write(JSON.stringify({
-        status: "error",
-        message: "伺服器錯誤"
-      }))
-      res.end()
+      error500(res);
     }
-  } else if (req.url === "/api/skill" && req.method === "POST") {
+  } else if (req.url === "/api/coaches/skill" && req.method === "POST") {
     req.on("end", async()=> {
       try {
         const data = JSON.parse(body)
-        if (isUndefined(data.name)){
+        if (isNotValidString(data.name)){
           res.writeHead(400, headers)
           res.write(JSON.stringify({
             status: "failed",
@@ -196,10 +173,10 @@ const requestListener = async (req, res) => {
           res.end()
         }
       })
-    } else if (req.url.startsWith === "/api/skill/" && req.method === "DELETE"){
+  } else if (req.url.startsWith ("/api/coaches/skill/") && req.method === "DELETE"){
       try {
         const skillId= req.url.split("/").pop()
-        if (isUndefined(skillId) || isNotValidString(skillId)){
+        if (isNotValidString(skillId)){
           res.writeHead(400, headers)
           res.write(JSON.stringify({
             status: "failed",
@@ -208,16 +185,35 @@ const requestListener = async (req, res) => {
           res.end()
           return
         }
-        //到這裡，參照段落為第107行
+        const result = await AppDataSource.getRepository("Skill").delete(skillId)
+        if (result.affected === 0){
+            res.writeHead(400, headers)
+            res.write(JSON.stringify({
+                status: "failed",
+                message: "ID錯誤"
+            }))
+            res.end()
+            return
+        }
+        res.writeHead(200, headers)
+        res.write(JSON.stringify({
+          status: "success"
+        }))
+        res.end()
+      }catch (error){
+        error500(res);
       }
-    } else {
+  } else if (req.method === "OPTIONS") {
+      res.writeHead(200, headers)
+      res.end()
+  } else {
       res.writeHead(404, headers)
       res.write(JSON.stringify({
         status: "failed",
         message: "無此網站路由",
       }))
       res.end()
-    }
+  }
 }
 
 const server = http.createServer(requestListener)
